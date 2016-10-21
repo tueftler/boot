@@ -13,23 +13,18 @@ func command(config *docker.HealthConfig) []string {
 	switch config.Test[0] {
 	case "CMD":
 		return config.Test[1:len(config.Test)]
-
 	case "CMD-SHELL":
-		cmd := []string{"/bin/sh", "-c"}
-		for _, value := range config.Test[1:len(config.Test)] {
-			cmd = append(cmd, value)
-		}
-		return cmd
+		return append([]string{"/bin/sh", "-c"}, config.Test[1:len(config.Test)]...)
+	default:
+		return []string{"echo", "Healthcheck", config.Test[0]}
 	}
-
-	return []string{"echo", "Healthcheck", config.Test[0]}
 }
 
 func healtcheck(client *docker.Client, container *docker.Container) error {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
-		AttachStderr: true,
-		AttachStdin:  true,
+		AttachStdin:  false,
 		AttachStdout: true,
+		AttachStderr: true,
 		Tty:          false,
 		Cmd:          command(container.Config.Healthcheck),
 		Container:    container.ID,
@@ -42,7 +37,6 @@ func healtcheck(client *docker.Client, container *docker.Container) error {
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
 		OutputStream: &stdout,
 		ErrorStream:  &stderr,
-		InputStream:  nil,
 		RawTerminal:  true,
 	})
 	if err != nil {
