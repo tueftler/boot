@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -106,12 +110,75 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 
 func main() {
 	endpoint := flag.String("endpoint", "unix:///var/run/docker.sock", "Docker socket")
+	address := flag.String("address", "unix:///var/run/doboot.sock", "Doboot socket")
 
+	// Docker client
 	client, err := docker.NewClient(*endpoint)
 	if err != nil {
 		fmt.Printf("Error (%s) %s\n", *endpoint, err.Error())
 		os.Exit(1)
 	}
+
+	// HTTP proxy
+	proxy, err := net.Listen("unix", "/tmp/doboot.sock")
+	if err != nil {
+		fmt.Printf("Error (%s) %s\n", *address, err.Error())
+		os.Exit(1)
+	}
+
+	proxied := make(chan *docker.APIEvents)
+	forward := &http.Client{Transport: &http.Transport{Dial: func(network, address string) (net.Conn, error) {
+		return net.Dial("unix", "/var/run/docker.sock")
+	}}}
+
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		w.Header().Add("Transfer-Encoding", "chunked")
+		w.WriteHeader(http.StatusOK)
+
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+
+		for {
+			select {
+			case event := <-proxied:
+				bytes, err := json.Marshal(event)
+				if err != nil {
+					break
+				}
+				w.Write(bytes)
+			}
+		}
+	})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf(">>> %s %s\n", r.Method, r.URL)
+		r.RequestURI = ""
+		r.URL.Scheme = "http"
+		r.URL.Host = "unix.sock"
+
+		response, err := forward.Do(r)
+		if err != nil {
+			fmt.Printf("<<< 502 %s", err.Error())
+			w.WriteHeader(502)
+			fmt.Fprintf(w, "<h1>Proxy error</h1><pre>%s</pre>", err.Error())
+			return
+		}
+
+		fmt.Printf("<<< %s\n", response.Status)
+		for header, values := range response.Header {
+			for _, value := range values {
+				fmt.Printf("%s: %s\n", header, value)
+				w.Header().Add(header, value)
+			}
+		}
+		w.Header().Add("Via", "1.1 (DoBoot)")
+
+		w.WriteHeader(response.StatusCode)
+		io.Copy(w, response.Body)
+	})
+
+	go http.Serve(proxy, nil)
 
 	events := make(chan *docker.APIEvents)
 	client.AddEventListener(events)
@@ -121,23 +188,22 @@ func main() {
 		select {
 		case event := <-events:
 			stream := NewStream(text("label", event.ID[0:13]+" | "), Print)
+			fmt.Fprintf(stream, line("info", "%s %s (%s)"), event.Status, event.From, event.ID)
+
 			switch event.Status {
 			case "start":
-				fmt.Fprintf(stream, line("info", "Start %s (%s)"), event.From, event.ID)
-
 				go func() {
 					err := wait(stream, client, event.ID)
 					if err != nil {
 						fmt.Fprintf(stream, line("error", "Error %s"), err.Error())
 					} else {
 						fmt.Fprintf(stream, line("success", "Up and running!"))
+						go func() { proxied <- event }()
 					}
 				}()
 
-			case "stop":
-				fmt.Fprintf(stream, line("info", "Stop %s (%s)"), event.From, event.ID)
-			case "die":
-				fmt.Fprintf(stream, line("info", "Die %s (%s)"), event.From, event.ID)
+			default:
+				go func() { proxied <- event }()
 			}
 		}
 	}
