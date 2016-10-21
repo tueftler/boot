@@ -5,22 +5,33 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
 
-func healtcheck(client *docker.Client, container *docker.Container) error {
-	cmd := []string{"/bin/sh", "-c"}
-	for _, value := range container.Config.Healthcheck.Test[1:len(container.Config.Healthcheck.Test)] {
-		cmd = append(cmd, value)
+func command(config *docker.HealthConfig) []string {
+	switch config.Test[0] {
+	case "CMD":
+		return config.Test[1:len(config.Test)]
+
+	case "CMD-SHELL":
+		cmd := []string{"/bin/sh", "-c"}
+		for _, value := range config.Test[1:len(config.Test)] {
+			cmd = append(cmd, value)
+		}
+		return cmd
 	}
+
+	return []string{"echo", "Healthcheck", config.Test[0]}
+}
+
+func healtcheck(client *docker.Client, container *docker.Container) error {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
 		AttachStderr: true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		Tty:          false,
-		Cmd:          cmd,
+		Cmd:          command(container.Config.Healthcheck),
 		Container:    container.ID,
 	})
 	if err != nil {
@@ -28,12 +39,10 @@ func healtcheck(client *docker.Client, container *docker.Container) error {
 	}
 
 	var stdout, stderr bytes.Buffer
-	var reader = strings.NewReader("")
-
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
 		OutputStream: &stdout,
 		ErrorStream:  &stderr,
-		InputStream:  reader,
+		InputStream:  nil,
 		RawTerminal:  true,
 	})
 	if err != nil {
@@ -72,7 +81,7 @@ func main() {
 
 				fmt.Printf("  %+v\n", container.Config.Healthcheck)
 				if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
-					fmt.Printf("  No Healthcheck, assuming container started.")
+					fmt.Printf("  No Healthcheck, assuming container started.\n")
 					break
 				}
 
