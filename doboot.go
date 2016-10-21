@@ -5,9 +5,17 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 )
+
+const TRIES = 10
+
+type Healthcheck struct {
+	Result int
+	Output string
+}
 
 func command(config *docker.HealthConfig) []string {
 	switch config.Test[0] {
@@ -20,7 +28,7 @@ func command(config *docker.HealthConfig) []string {
 	}
 }
 
-func healtcheck(client *docker.Client, container *docker.Container) error {
+func healthcheck(client *docker.Client, container *docker.Container) (*Healthcheck, error) {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
@@ -30,7 +38,7 @@ func healtcheck(client *docker.Client, container *docker.Container) error {
 		Container:    container.ID,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -40,11 +48,45 @@ func healtcheck(client *docker.Client, container *docker.Container) error {
 		RawTerminal:  true,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	inspect, err := client.InspectExec(exec.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Healthcheck{Result: inspect.ExitCode, Output: stdout.String()}, nil
+}
+
+func wait(client *docker.Client, ID string) error {
+	container, err := client.InspectContainer(ID)
+	if err != nil {
 		return err
 	}
 
-	fmt.Printf("stdout: '%s'\n", stdout.String())
-	return nil
+	fmt.Printf("  %+v\n", container.Config.Healthcheck)
+	if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
+		fmt.Printf("  No Healthcheck, assuming container started.\n")
+		return nil
+	}
+
+	tries := TRIES
+	for tries > 0 {
+		check, err := healthcheck(client, container)
+		fmt.Printf("  %+v.\n", check)
+		if err != nil {
+			return err
+		}
+
+		if check.Result == 0 {
+			return nil
+		}
+
+		time.Sleep(1 * time.Second)
+		tries--
+	}
+	return fmt.Errorf("Timed out")
 }
 
 func main() {
@@ -67,19 +109,12 @@ func main() {
 			case "start":
 				fmt.Printf("> START %s: %s\n", event.From, event.ID)
 
-				container, err := client.InspectContainer(event.ID)
+				err := wait(client, event.ID)
 				if err != nil {
 					fmt.Printf("  %s\n", err.Error())
-					break
+				} else {
+					fmt.Printf("  Up and running!\n")
 				}
-
-				fmt.Printf("  %+v\n", container.Config.Healthcheck)
-				if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
-					fmt.Printf("  No Healthcheck, assuming container started.\n")
-					break
-				}
-
-				healtcheck(client, container)
 
 			case "stop":
 				fmt.Printf("> STOP %s: %s\n", event.From, event.ID)
