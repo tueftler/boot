@@ -70,7 +70,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
-		fmt.Fprintf(stream, "Using %+v\n", label)
+		fmt.Fprintf(stream, line("info", "Using %+v"), label)
 
 		result, err := run(stream, client, container.ID, boot(label))
 		if err != nil {
@@ -80,7 +80,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 		}
 		return nil
 	} else if container.Config.Healthcheck != nil && len(container.Config.Healthcheck.Test) > 0 {
-		fmt.Fprintf(stream, "Using %+v\n", container.Config.Healthcheck)
+		fmt.Fprintf(stream, line("info", "Using %+v"), container.Config.Healthcheck)
 
 		tries := TRIES
 		for tries > 0 {
@@ -89,7 +89,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 				return err
 			}
 
-			fmt.Fprintf(stream, "Exit %d\n", result)
+			fmt.Fprintf(stream, line("info", "Exit %d"), result)
 			if result == 0 {
 				return nil
 			}
@@ -120,24 +120,24 @@ func main() {
 	for {
 		select {
 		case event := <-events:
-			stream := NewStream("\033[1;34m"+event.ID[0:13]+" |\033[0m ", Print)
+			stream := NewStream(text("label", event.ID[0:13]+" | "), Print)
 			switch event.Status {
 			case "start":
-				fmt.Fprintf(stream, "Start %s\n", event.From)
+				fmt.Fprintf(stream, line("info", "Start %s (%s)"), event.From, event.ID)
 
 				go func() {
 					err := wait(stream, client, event.ID)
 					if err != nil {
-						fmt.Fprintf(stream, "Error %s\n", err.Error())
+						fmt.Fprintf(stream, line("error", "Error %s"), err.Error())
 					} else {
-						fmt.Fprintf(stream, "Up and running!\n")
+						fmt.Fprintf(stream, line("success", "Up and running!"))
 					}
 				}()
 
 			case "stop":
-				fmt.Fprintf(stream, "Stop %s\n", event.From)
+				fmt.Fprintf(stream, line("info", "Stop %s (%s)"), event.From, event.ID)
 			case "die":
-				fmt.Fprintf(stream, "Die %s\n", event.From)
+				fmt.Fprintf(stream, line("info", "Die %s (%s)"), event.From, event.ID)
 			}
 		}
 	}
