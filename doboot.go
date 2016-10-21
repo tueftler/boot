@@ -108,6 +108,14 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 	}
 }
 
+func distribute(output *Stream, listeners []chan *docker.APIEvents, event *docker.APIEvents) {
+	for _, listener := range listeners {
+		listener <- event
+	}
+
+	fmt.Fprintf(output, "To %d -> %s %s %+v\n", len(listeners), event.Action, event.Actor.ID[0:13], event.Actor.Attributes)
+}
+
 func main() {
 	endpoint := flag.String("endpoint", "unix:///var/run/docker.sock", "Docker socket")
 	address := flag.String("address", "unix:///var/run/doboot.sock", "Doboot socket")
@@ -126,49 +134,64 @@ func main() {
 		os.Exit(1)
 	}
 
-	proxied := make(chan *docker.APIEvents)
+	var listeners []chan *docker.APIEvents
+
 	forward := &http.Client{Transport: &http.Transport{Dial: func(network, address string) (net.Conn, error) {
 		return net.Dial("unix", "/var/run/docker.sock")
 	}}}
 
-	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+	handle := func(w http.ResponseWriter, r *http.Request) {
+		listener := make(chan *docker.APIEvents)
+		listeners = append(listeners, listener)
+		index := len(listeners)
+
 		w.Header().Add("Content-Type", "application/json")
 		w.Header().Add("Transfer-Encoding", "chunked")
 		w.WriteHeader(http.StatusOK)
 
 		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
+			for {
+				select {
+				case event := <-listener:
+					bytes, _ := json.Marshal(event)
+					if err != nil {
+						panic(err)
+					}
 
-		for {
-			select {
-			case event := <-proxied:
-				bytes, err := json.Marshal(event)
-				if err != nil {
-					break
+					if _, err := w.Write(bytes); err != nil {
+						listeners = append(listeners[:index-1], listeners[index:]...)
+						return
+					}
+
+					f.Flush()
 				}
-				w.Write(bytes)
 			}
 		}
-	})
+	}
+	http.HandleFunc("/events", handle)
+	http.HandleFunc("/v1.24/events", handle)
+	http.HandleFunc("/v1.19/events", handle)
+	http.HandleFunc("/v1.12/events", handle)
+
+	output := NewStream(text("proxy", "proxy         | "), Print)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf(">>> %s %s\n", r.Method, r.URL)
+		fmt.Fprintf(output, ">>> %s %s\n", r.Method, r.URL)
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = "unix.sock"
 
 		response, err := forward.Do(r)
 		if err != nil {
-			fmt.Printf("<<< 502 %s", err.Error())
+			fmt.Fprintf(output, "<<< 502 %s", err.Error())
 			w.WriteHeader(502)
 			fmt.Fprintf(w, "<h1>Proxy error</h1><pre>%s</pre>", err.Error())
 			return
 		}
 
-		fmt.Printf("<<< %s\n", response.Status)
+		fmt.Fprintf(output, "<<< %s\n", response.Status)
 		for header, values := range response.Header {
 			for _, value := range values {
-				fmt.Printf("%s: %s\n", header, value)
+				fmt.Fprintf(output, "%s: %s\n", header, value)
 				w.Header().Add(header, value)
 			}
 		}
@@ -187,23 +210,21 @@ func main() {
 	for {
 		select {
 		case event := <-events:
-			stream := NewStream(text("label", event.ID[0:13]+" | "), Print)
-			fmt.Fprintf(stream, line("info", "%s %s (%s)"), event.Status, event.From, event.ID)
-
 			switch event.Status {
 			case "start":
+				stream := NewStream(text("docker", event.ID[0:13]+" | "), Print)
 				go func() {
 					err := wait(stream, client, event.ID)
 					if err != nil {
 						fmt.Fprintf(stream, line("error", "Error %s"), err.Error())
 					} else {
 						fmt.Fprintf(stream, line("success", "Up and running!"))
-						go func() { proxied <- event }()
+						go distribute(output, listeners, event)
 					}
 				}()
 
 			default:
-				go func() { proxied <- event }()
+				go distribute(output, listeners, event)
 			}
 		}
 	}
