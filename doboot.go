@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
@@ -14,7 +15,7 @@ const TRIES = 10
 
 type Healthcheck struct {
 	Result int
-	Output string
+	Lines  []string
 }
 
 func command(config *docker.HealthConfig) []string {
@@ -56,7 +57,7 @@ func healthcheck(client *docker.Client, container *docker.Container) (*Healthche
 		return nil, err
 	}
 
-	return &Healthcheck{Result: inspect.ExitCode, Output: stdout.String()}, nil
+	return &Healthcheck{Result: inspect.ExitCode, Lines: strings.Split(stdout.String(), "\n")}, nil
 }
 
 func wait(client *docker.Client, ID string) error {
