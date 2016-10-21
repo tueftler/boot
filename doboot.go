@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
@@ -15,7 +14,33 @@ const TRIES = 10
 
 type Healthcheck struct {
 	Result int
-	Lines  []string
+}
+
+type Stream struct {
+	ID      string
+	started bool
+}
+
+func (s *Stream) Write(p []byte) (n int, err error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	if !s.started {
+		fmt.Print("\033[1;34m" + s.ID[0:13] + " |\033[0m ")
+		s.started = true
+	}
+
+	pos := bytes.IndexByte(p, '\n')
+	if pos == -1 {
+		fmt.Print(string(p))
+	} else {
+		pos++
+		fmt.Print(string(p[0:pos]))
+		s.started = false
+		s.Write(p[pos:len(p)])
+	}
+	return len(p), nil
 }
 
 func writef(ID, format string, args ...interface{}) {
@@ -46,10 +71,10 @@ func healthcheck(client *docker.Client, container *docker.Container) (*Healthche
 		return nil, err
 	}
 
-	var stdout, stderr bytes.Buffer
+	stream := &Stream{ID: container.ID, started: false}
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
-		OutputStream: &stdout,
-		ErrorStream:  &stderr,
+		OutputStream: stream,
+		ErrorStream:  stream,
 		RawTerminal:  true,
 	})
 	if err != nil {
@@ -61,7 +86,7 @@ func healthcheck(client *docker.Client, container *docker.Container) (*Healthche
 		return nil, err
 	}
 
-	return &Healthcheck{Result: inspect.ExitCode, Lines: strings.Split(stdout.String(), "\n")}, nil
+	return &Healthcheck{Result: inspect.ExitCode}, nil
 }
 
 func wait(client *docker.Client, ID string) error {
@@ -79,10 +104,11 @@ func wait(client *docker.Client, ID string) error {
 	tries := TRIES
 	for tries > 0 {
 		check, err := healthcheck(client, container)
-		writef(ID, "%+v", check)
 		if err != nil {
 			return err
 		}
+
+		writef(ID, "Exit %d", check.Result)
 
 		if check.Result == 0 {
 			return nil
