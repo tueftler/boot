@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
@@ -11,11 +12,17 @@ import (
 
 const TRIES = 10
 
-type Healthcheck struct {
-	Result int
+func boot(label string) []string {
+	command := strings.Split(label, " ")
+	switch command[0] {
+	case "CMD":
+		return append([]string{"/bin/sh", "-c"}, command[1:len(command)]...)
+	default:
+		return command
+	}
 }
 
-func command(config *docker.HealthConfig) []string {
+func healthcheck(config *docker.HealthConfig) []string {
 	switch config.Test[0] {
 	case "CMD":
 		return config.Test[1:len(config.Test)]
@@ -26,17 +33,17 @@ func command(config *docker.HealthConfig) []string {
 	}
 }
 
-func healthcheck(stream *Stream, client *docker.Client, container *docker.Container) (*Healthcheck, error) {
+func run(stream *Stream, client *docker.Client, id string, cmd []string) (int, error) {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          false,
-		Cmd:          command(container.Config.Healthcheck),
-		Container:    container.ID,
+		Cmd:          cmd,
+		Container:    id,
 	})
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
@@ -45,15 +52,15 @@ func healthcheck(stream *Stream, client *docker.Client, container *docker.Contai
 		RawTerminal:  true,
 	})
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 
 	inspect, err := client.InspectExec(exec.ID)
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
 
-	return &Healthcheck{Result: inspect.ExitCode}, nil
+	return inspect.ExitCode, nil
 }
 
 func wait(stream *Stream, client *docker.Client, ID string) error {
@@ -62,28 +69,39 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 		return err
 	}
 
-	fmt.Fprintf(stream, "%+v\n", container.Config.Healthcheck)
-	if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
-		fmt.Fprintf(stream, "No Healthcheck, assuming container started\n")
-		return nil
-	}
+	if label, ok:= container.Config.Labels["boot"]; ok {
+		fmt.Fprintf(stream, "Using %+v\n", label)
 
-	tries := TRIES
-	for tries > 0 {
-		check, err := healthcheck(stream, client, container)
+		result, err := run(stream, client, container.ID, boot(label))
 		if err != nil {
 			return err
+		} else if result != 0 {
+			return fmt.Errorf("Non-zero exit code %d", result)
 		}
+		return nil
+	} else if container.Config.Healthcheck != nil && len(container.Config.Healthcheck.Test) > 0 {
+		fmt.Fprintf(stream, "Using %+v\n", container.Config.Healthcheck)
 
-		fmt.Fprintf(stream, "Exit %d\n", check.Result)
-		if check.Result == 0 {
-			return nil
+		tries := TRIES
+		for tries > 0 {
+			result, err := run(stream, client, container.ID, healthcheck(container.Config.Healthcheck))
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(stream, "Exit %d\n", result)
+			if result == 0 {
+				return nil
+			}
+
+			time.Sleep(1 * time.Second)
+			tries--
 		}
-
-		time.Sleep(1 * time.Second)
-		tries--
+		return fmt.Errorf("Timed out")
+	} else {		
+		fmt.Fprintf(stream, "Neither boot command nor healthcheck present, assuming container started\n")
+		return nil
 	}
-	return fmt.Errorf("Timed out")
 }
 
 func main() {
