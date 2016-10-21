@@ -69,7 +69,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 		return err
 	}
 
-	if label, ok:= container.Config.Labels["boot"]; ok {
+	if label, ok := container.Config.Labels["boot"]; ok {
 		fmt.Fprintf(stream, "Using %+v\n", label)
 
 		result, err := run(stream, client, container.ID, boot(label))
@@ -98,7 +98,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 			tries--
 		}
 		return fmt.Errorf("Timed out")
-	} else {		
+	} else {
 		fmt.Fprintf(stream, "Neither boot command nor healthcheck present, assuming container started\n")
 		return nil
 	}
