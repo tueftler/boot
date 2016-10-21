@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -16,37 +15,6 @@ type Healthcheck struct {
 	Result int
 }
 
-type Stream struct {
-	ID      string
-	started bool
-}
-
-func (s *Stream) Write(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-
-	if !s.started {
-		fmt.Print("\033[1;34m" + s.ID[0:13] + " |\033[0m ")
-		s.started = true
-	}
-
-	pos := bytes.IndexByte(p, '\n')
-	if pos == -1 {
-		fmt.Print(string(p))
-	} else {
-		pos++
-		fmt.Print(string(p[0:pos]))
-		s.started = false
-		s.Write(p[pos:len(p)])
-	}
-	return len(p), nil
-}
-
-func writef(ID, format string, args ...interface{}) {
-	fmt.Printf("\033[1;34m"+ID[0:13]+" |\033[0m "+format+"\n", args...)
-}
-
 func command(config *docker.HealthConfig) []string {
 	switch config.Test[0] {
 	case "CMD":
@@ -58,7 +26,7 @@ func command(config *docker.HealthConfig) []string {
 	}
 }
 
-func healthcheck(client *docker.Client, container *docker.Container) (*Healthcheck, error) {
+func healthcheck(stream *Stream, client *docker.Client, container *docker.Container) (*Healthcheck, error) {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
@@ -71,7 +39,6 @@ func healthcheck(client *docker.Client, container *docker.Container) (*Healthche
 		return nil, err
 	}
 
-	stream := &Stream{ID: container.ID, started: false}
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
 		OutputStream: stream,
 		ErrorStream:  stream,
@@ -89,27 +56,26 @@ func healthcheck(client *docker.Client, container *docker.Container) (*Healthche
 	return &Healthcheck{Result: inspect.ExitCode}, nil
 }
 
-func wait(client *docker.Client, ID string) error {
+func wait(stream *Stream, client *docker.Client, ID string) error {
 	container, err := client.InspectContainer(ID)
 	if err != nil {
 		return err
 	}
 
-	writef(ID, "%+v", container.Config.Healthcheck)
+	fmt.Fprintf(stream, "%+v\n", container.Config.Healthcheck)
 	if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
-		writef(ID, "No Healthcheck, assuming container started")
+		fmt.Fprintf(stream, "No Healthcheck, assuming container started\n")
 		return nil
 	}
 
 	tries := TRIES
 	for tries > 0 {
-		check, err := healthcheck(client, container)
+		check, err := healthcheck(stream, client, container)
 		if err != nil {
 			return err
 		}
 
-		writef(ID, "Exit %d", check.Result)
-
+		fmt.Fprintf(stream, "Exit %d\n", check.Result)
 		if check.Result == 0 {
 			return nil
 		}
@@ -136,23 +102,24 @@ func main() {
 	for {
 		select {
 		case event := <-events:
+			stream := NewStream("\033[1;34m"+event.ID[0:13]+" |\033[0m ", Print)
 			switch event.Status {
 			case "start":
-				writef(event.ID, "Start %s", event.From)
+				fmt.Fprintf(stream, "Start %s\n", event.From)
 
 				go func() {
-					err := wait(client, event.ID)
+					err := wait(stream, client, event.ID)
 					if err != nil {
-						writef(event.ID, "Error %s", err.Error())
+						fmt.Fprintf(stream, "Error %s\n", err.Error())
 					} else {
-						writef(event.ID, "Up and running!")
+						fmt.Fprintf(stream, "Up and running!\n")
 					}
 				}()
 
 			case "stop":
-				writef(event.ID, "Stop %s", event.From)
+				fmt.Fprintf(stream, "Stop %s\n", event.From)
 			case "die":
-				writef(event.ID, "Die %s", event.From)
+				fmt.Fprintf(stream, "Die %s\n", event.From)
 			}
 		}
 	}
