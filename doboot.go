@@ -141,6 +141,8 @@ func main() {
 	}}}
 
 	handle := func(w http.ResponseWriter, r *http.Request) {
+
+		// TODO Use http://stackoverflow.com/a/18897083
 		listener := make(chan *docker.APIEvents)
 		listeners = append(listeners, listener)
 		index := len(listeners)
