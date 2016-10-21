@@ -18,6 +18,10 @@ type Healthcheck struct {
 	Lines  []string
 }
 
+func writef(ID, format string, args ...interface{}) {
+	fmt.Printf("\033[1;34m"+ID[0:13]+" |\033[0m "+format+"\n", args...)
+}
+
 func command(config *docker.HealthConfig) []string {
 	switch config.Test[0] {
 	case "CMD":
@@ -66,16 +70,16 @@ func wait(client *docker.Client, ID string) error {
 		return err
 	}
 
-	fmt.Printf("  %+v\n", container.Config.Healthcheck)
+	writef(ID, "%+v", container.Config.Healthcheck)
 	if container.Config.Healthcheck == nil || len(container.Config.Healthcheck.Test) == 0 {
-		fmt.Printf("  No Healthcheck, assuming container started.\n")
+		writef(ID, "No Healthcheck, assuming container started")
 		return nil
 	}
 
 	tries := TRIES
 	for tries > 0 {
 		check, err := healthcheck(client, container)
-		fmt.Printf("  %+v.\n", check)
+		writef(ID, "%+v", check)
 		if err != nil {
 			return err
 		}
@@ -108,19 +112,21 @@ func main() {
 		case event := <-events:
 			switch event.Status {
 			case "start":
-				fmt.Printf("> START %s: %s\n", event.From, event.ID)
+				writef(event.ID, "Start %s", event.From)
 
-				err := wait(client, event.ID)
-				if err != nil {
-					fmt.Printf("  %s\n", err.Error())
-				} else {
-					fmt.Printf("  Up and running!\n")
-				}
+				go func() {
+					err := wait(client, event.ID)
+					if err != nil {
+						writef(event.ID, "Error %s", err.Error())
+					} else {
+						writef(event.ID, "Up and running!")
+					}
+				}()
 
 			case "stop":
-				fmt.Printf("> STOP %s: %s\n", event.From, event.ID)
+				writef(event.ID, "Stop %s", event.From)
 			case "die":
-				fmt.Printf("> DIE %s: %s\n", event.From, event.ID)
+				writef(event.ID, "Die %s", event.From)
 			}
 		}
 	}
