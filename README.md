@@ -10,7 +10,7 @@ Docker yields a "start" event when containers start. This, however, does not mea
 |                 |             |         |             |              |
 | Docker Daemon   |             | DoBoot  | 3) started  | Application  |
 |                 | 1) started! |         | and ready!  | using Docker |
-|                 +-------------> *magic* +-------------> Socket, e.g. |
+|                 +-------------> [*] >>> +-------------> Socket, e.g. |
 |                 |             | v       |             | Traefik      |
 |                 |             | |       |             |              |
 +-------------+---+             +-+-------+             +--------------+
