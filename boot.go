@@ -132,10 +132,6 @@ func main() {
 				select {
 				case event := <-listener:
 					bytes, _ := json.Marshal(event)
-					if err != nil {
-						panic(err)
-					}
-
 					if _, err := w.Write(bytes); err != nil {
 						l.Lock()
 						listeners = append(listeners[:index-1], listeners[index:]...)
