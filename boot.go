@@ -225,12 +225,12 @@ func main() {
 						stream.Line("error", "Error %s", err.Error())
 					} else {
 						stream.Line("success", "Up and running!")
-						go distribute(stream, listeners, event)
+						distribute(stream, listeners, event)
 					}
 				}()
 
 			default:
-				go distribute(stream, listeners, event)
+				distribute(stream, listeners, event)
 			}
 		}
 	}
