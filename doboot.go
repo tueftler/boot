@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/tueftler/doboot/addr"
 )
 
 const TRIES = 10
@@ -117,27 +118,30 @@ func distribute(output *Stream, listeners []chan *docker.APIEvents, event *docke
 }
 
 func main() {
-	endpoint := flag.String("endpoint", "unix:///var/run/docker.sock", "Docker socket")
-	address := flag.String("address", "unix:///var/run/doboot.sock", "Doboot socket")
+	dockerSocket := flag.String("docker", "unix:///var/run/docker.sock", "Docker socket")
+	listenSocket := flag.String("listen", "unix:///var/run/doboot.sock", "Doboot socket")
+	flag.Parse()
 
 	// Docker client
-	client, err := docker.NewClient(*endpoint)
+	endpoint := addr.Flag(*dockerSocket)
+	client, err := docker.NewClient(endpoint.String())
 	if err != nil {
-		fmt.Printf("Error (%s) %s\n", *endpoint, err.Error())
+		fmt.Printf("Error (%s) %s\n", *dockerSocket, err.Error())
 		os.Exit(1)
 	}
 
 	// HTTP proxy
-	proxy, err := net.Listen("unix", "/tmp/doboot.sock")
+	proxy, err := addr.Flag(*listenSocket).Listen()
 	if err != nil {
-		fmt.Printf("Error (%s) %s\n", *address, err.Error())
+		fmt.Printf("Error (%s) %s\n", *listenSocket, err.Error())
 		os.Exit(1)
 	}
 
 	var listeners []chan *docker.APIEvents
 
+	// Force all forwarded traffic to docker socket
 	forward := &http.Client{Transport: &http.Transport{Dial: func(network, address string) (net.Conn, error) {
-		return net.Dial("unix", "/var/run/docker.sock")
+		return endpoint.Dial()
 	}}}
 
 	handle := func(w http.ResponseWriter, r *http.Request) {
