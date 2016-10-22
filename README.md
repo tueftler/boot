@@ -50,6 +50,6 @@ The boot script may be something as simple as `sleep 5`, but you're encouraged t
 Contributing
 ------------
 
-To contribute to DoGet, use the :octocat: way - fork, hack, and submit a pull request! If you're unsure where to start, look out for [issues](https://github.com/tueftler/boot/issues) labeled with **help wanted**.
+To contribute to *Boot*, use the :octocat: way - fork, hack, and submit a pull request! If you're unsure where to start, look out for [issues](https://github.com/tueftler/boot/issues) labeled with **help wanted**.
 
 **Enjoy!**
