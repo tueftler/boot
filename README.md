@@ -29,7 +29,11 @@ How it works
 ------------
 When a "start" event is received on the Docker socket, *DoBoot* inspects the container and checks for `boot` label. If present, *DoBoot* runs this command in the container and waits for it to return. The "start" event is then passed on to the DoBoot socket for other applications to consume.
 
-To set the label, either use the *LABEL* instruction inside the Dockerfile or pass `-l boot=/boot.sh` on the docker command line.
+In the other direction, *DoBoot* simply passes all communication on to the Docker socket and replies with what it receives. This means it will work with any application currently using Docker's API to drive its business logic. 
+
+Using DoBoot
+------------
+The only prerequisite to using *DoBoot* semantics is to add the label and the boot script. To set the label, either use the *LABEL* instruction inside the Dockerfile or pass `-l boot=/boot.sh` on the docker command line.
 
 ```Dockerfile
 FROM debian:jessie
@@ -41,7 +45,10 @@ HEALTHCHECK CMD /health.sh
 CMD ...
 ```
 
-## Contributing
+The boot script may be something as simple as `sleep 5`, but you're encouraged to write more sophisticated checks to determine whether your service is actually up and running.
+
+Contributing
+------------
 
 To contribute to DoGet, use the :octocat: way - fork, hack, and submit a pull request! If you're unsure where to start, look out for [issues](https://github.com/tueftler/doboot/issues) labeled with **help wanted**.
 
