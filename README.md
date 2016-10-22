@@ -1,6 +1,7 @@
 Boot
 ====
 [![Build Status on TravisCI](https://secure.travis-ci.org/tueftler/boot.png)](http://travis-ci.org/tueftler/boot)
+![Latest Release](https://img.shields.io/github/release/tueftler/boot.svg)
 
 Docker yields a "start" event when containers start. This, however, does not mean they can be considered up and running. Boot fills this gap.
 
