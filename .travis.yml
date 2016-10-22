@@ -11,4 +11,4 @@ install:
 
 script:
 - go test -v ./...
-- go build -o build/doboot github.com/tueftler/doboot
+- go build -o build/boot github.com/tueftler/boot
