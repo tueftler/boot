@@ -1,4 +1,4 @@
-package main
+package output
 
 import (
 	"bytes"
@@ -13,10 +13,27 @@ type Stream struct {
 	started bool
 }
 
+// NewStream creates a stream on a given writer
 func NewStream(prefix string, write func(string)) *Stream {
 	return &Stream{prefix: prefix, write: write, started: false}
 }
 
+// Printf formats arguments without any coloring
+func (s *Stream) Printf(format string, args ...interface{}) {
+	fmt.Fprintf(s, format, args...)
+}
+
+// Println prints a line without any coloring
+func (s *Stream) Println(args ...interface{}) {
+	fmt.Fprintln(s, args...)
+}
+
+// Line formats arguments and prints it
+func (s *Stream) Line(kind, format string, args ...interface{}) {
+	fmt.Fprintf(s, Line(kind, format), args...)
+}
+
+// Write writes the given bytes, prefixing all lines with the given prefix
 func (s *Stream) Write(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
@@ -30,8 +47,6 @@ func (s *Stream) Write(p []byte) (n int, err error) {
 
 	if !s.started {
 		s.write(s.prefix)
-		// DEBUG s.write(fmt.Sprintf("%+v\n", p))
-		// DEBUG s.write(s.prefix)
 		s.started = true
 	}
 

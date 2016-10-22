@@ -13,6 +13,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/doboot/addr"
+	"github.com/tueftler/doboot/output"
 )
 
 const TRIES = 10
@@ -38,7 +39,7 @@ func healthcheck(config *docker.HealthConfig) []string {
 	}
 }
 
-func run(stream *Stream, client *docker.Client, id string, cmd []string) (int, error) {
+func run(stream *output.Stream, client *docker.Client, id string, cmd []string) (int, error) {
 	exec, err := client.CreateExec(docker.CreateExecOptions{
 		AttachStdin:  false,
 		AttachStdout: true,
@@ -68,14 +69,14 @@ func run(stream *Stream, client *docker.Client, id string, cmd []string) (int, e
 	return inspect.ExitCode, nil
 }
 
-func wait(stream *Stream, client *docker.Client, ID string) error {
+func wait(stream *output.Stream, client *docker.Client, ID string) error {
 	container, err := client.InspectContainer(ID)
 	if err != nil {
 		return err
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
-		fmt.Fprintf(stream, line("info", "Using %+v"), label)
+		stream.Line("info", "Using %+v", label)
 
 		result, err := run(stream, client, container.ID, boot(label))
 		if err != nil {
@@ -85,7 +86,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 		}
 		return nil
 	} else if container.Config.Healthcheck != nil && len(container.Config.Healthcheck.Test) > 0 {
-		fmt.Fprintf(stream, line("info", "Using %+v"), container.Config.Healthcheck)
+		stream.Line("info", "Using %+v", container.Config.Healthcheck)
 
 		tries := TRIES
 		for tries > 0 {
@@ -94,7 +95,7 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 				return err
 			}
 
-			fmt.Fprintf(stream, line("info", "Exit %d"), result)
+			stream.Line("info", "Exit %d", result)
 			if result == 0 {
 				return nil
 			}
@@ -104,17 +105,17 @@ func wait(stream *Stream, client *docker.Client, ID string) error {
 		}
 		return fmt.Errorf("Timed out")
 	} else {
-		fmt.Fprintf(stream, "Neither boot command nor healthcheck present, assuming container started\n")
+		stream.Line("warning", "Neither boot command nor healthcheck present, assuming container started")
 		return nil
 	}
 }
 
-func distribute(output *Stream, listeners []chan *docker.APIEvents, event *docker.APIEvents) {
+func distribute(stream *output.Stream, listeners []chan *docker.APIEvents, event *docker.APIEvents) {
 	for _, listener := range listeners {
 		listener <- event
 	}
 
-	fmt.Fprintf(output, "To %d -> %s %s %+v\n", len(listeners), event.Action, event.Actor.ID[0:13], event.Actor.Attributes)
+	stream.Printf("To %d -> %s %s %+v\n", len(listeners), event.Action, event.Actor.ID[0:13], event.Actor.Attributes)
 }
 
 func main() {
@@ -179,25 +180,24 @@ func main() {
 	http.HandleFunc("/v1.19/events", handle)
 	http.HandleFunc("/v1.12/events", handle)
 
-	output := NewStream(text("proxy", "proxy         | "), Print)
+	stream := output.NewStream(output.Text("proxy", "proxy         | "), output.Print)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(output, ">>> %s %s\n", r.Method, r.URL)
+		stream.Println(">>> ", r.Method, r.URL)
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = "unix.sock"
 
 		response, err := forward.Do(r)
 		if err != nil {
-			fmt.Fprintf(output, "<<< 502 %s", err.Error())
+			stream.Println("<<< 502 ", err.Error())
 			w.WriteHeader(502)
 			fmt.Fprintf(w, "<h1>Proxy error</h1><pre>%s</pre>", err.Error())
 			return
 		}
 
-		fmt.Fprintf(output, "<<< %s\n", response.Status)
+		stream.Println("<<< ", response.Status)
 		for header, values := range response.Header {
 			for _, value := range values {
-				fmt.Fprintf(output, "%s: %s\n", header, value)
 				w.Header().Add(header, value)
 			}
 		}
@@ -218,19 +218,19 @@ func main() {
 		case event := <-events:
 			switch event.Status {
 			case "start":
-				stream := NewStream(text("docker", event.ID[0:13]+" | "), Print)
+				stream := output.NewStream(output.Text("docker", event.ID[0:13]+" | "), output.Print)
 				go func() {
 					err := wait(stream, client, event.ID)
 					if err != nil {
-						fmt.Fprintf(stream, line("error", "Error %s"), err.Error())
+						stream.Line("error", "Error %s", err.Error())
 					} else {
-						fmt.Fprintf(stream, line("success", "Up and running!"))
-						go distribute(output, listeners, event)
+						stream.Line("success", "Up and running!")
+						go distribute(stream, listeners, event)
 					}
 				}()
 
 			default:
-				go distribute(output, listeners, event)
+				go distribute(stream, listeners, event)
 			}
 		}
 	}
