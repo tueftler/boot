@@ -50,7 +50,7 @@ The boot script may be something as simple as `sleep 5`, but you're encouraged t
 Further reading
 ---------------
 
-* [docker/compose#374](https://github.com/docker/compose/issues/374) - Related issue / motivation
+* [docker/compose#374](https://github.com/docker/compose/issues/374) and [docker/docker#21142](https://github.com/docker/docker/issues/21142)- Related issues / motivation
 * [fsouza/go-dockerclient](https://github.com/fsouza/go-dockerclient) - The extensive BSD-licensed docker client library used to realize this project
 
 Contributing
