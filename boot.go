@@ -20,7 +20,7 @@ func boot(label string) []string {
 	command := strings.Split(label, " ")
 	switch command[0] {
 	case "CMD":
-		return append([]string{"/bin/sh", "-c"}, command[1:len(command)]...)
+		return append([]string{"/bin/sh", "-c"}, command[1:]...)
 	default:
 		return command
 	}
