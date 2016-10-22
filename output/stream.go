@@ -41,7 +41,7 @@ func (s *Stream) Write(p []byte) (n int, err error) {
 
 	// Trim off byte sequences [1 0 0 0 0 0 0 {1,9,10}]
 	if p[0] == '\001' {
-		s.Write(p[8:len(p)])
+		s.Write(p[8:])
 		return len(p), nil
 	}
 
@@ -57,7 +57,7 @@ func (s *Stream) Write(p []byte) (n int, err error) {
 		pos++
 		s.write(string(p[0:pos]))
 		s.started = false
-		s.Write(p[pos:len(p)])
+		s.Write(p[pos:])
 	}
 
 	return len(p), nil

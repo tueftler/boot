@@ -42,10 +42,10 @@ func Parse(input string) (*Addr, error) {
 
 		switch scheme {
 		case "unix":
-			return &Addr{Protocol: scheme, Network: "unix", Address: input[pos:len(input)]}, nil
+			return &Addr{Protocol: scheme, Network: "unix", Address: input[pos:]}, nil
 
 		case "http", "https":
-			return &Addr{Protocol: scheme, Network: "tcp", Address: input[pos:len(input)]}, nil
+			return &Addr{Protocol: scheme, Network: "tcp", Address: input[pos:]}, nil
 		}
 
 		return nil, fmt.Errorf("Unsupported scheme '%s'", scheme)
