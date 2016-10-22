@@ -9,14 +9,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/boot/addr"
 	"github.com/tueftler/boot/output"
 )
-
-const TRIES = 10
 
 func boot(label string) []string {
 	command := strings.Split(label, " ")
@@ -25,17 +23,6 @@ func boot(label string) []string {
 		return append([]string{"/bin/sh", "-c"}, command[1:len(command)]...)
 	default:
 		return command
-	}
-}
-
-func healthcheck(config *docker.HealthConfig) []string {
-	switch config.Test[0] {
-	case "CMD":
-		return config.Test[1:len(config.Test)]
-	case "CMD-SHELL":
-		return append([]string{"/bin/sh", "-c"}, config.Test[1:len(config.Test)]...)
-	default:
-		return []string{"echo", "Healthcheck", config.Test[0]}
 	}
 }
 
@@ -85,27 +72,8 @@ func wait(stream *output.Stream, client *docker.Client, ID string) error {
 			return fmt.Errorf("Non-zero exit code %d", result)
 		}
 		return nil
-	} else if container.Config.Healthcheck != nil && len(container.Config.Healthcheck.Test) > 0 {
-		stream.Line("info", "Using %+v", container.Config.Healthcheck)
-
-		tries := TRIES
-		for tries > 0 {
-			result, err := run(stream, client, container.ID, healthcheck(container.Config.Healthcheck))
-			if err != nil {
-				return err
-			}
-
-			stream.Line("info", "Exit %d", result)
-			if result == 0 {
-				return nil
-			}
-
-			time.Sleep(1 * time.Second)
-			tries--
-		}
-		return fmt.Errorf("Timed out")
 	} else {
-		stream.Line("warning", "Neither boot command nor healthcheck present, assuming container started")
+		stream.Line("warning", "No boot command present, assuming container started")
 		return nil
 	}
 }
@@ -146,11 +114,14 @@ func main() {
 	}}}
 
 	handle := func(w http.ResponseWriter, r *http.Request) {
+		var l sync.Mutex
 
-		// TODO Use http://stackoverflow.com/a/18897083
 		listener := make(chan *docker.APIEvents)
+
+		l.Lock()
 		listeners = append(listeners, listener)
 		index := len(listeners)
+		l.Unlock()
 
 		w.Header().Add("Content-Type", "application/json")
 		w.Header().Add("Transfer-Encoding", "chunked")
@@ -166,7 +137,9 @@ func main() {
 					}
 
 					if _, err := w.Write(bytes); err != nil {
+						l.Lock()
 						listeners = append(listeners[:index-1], listeners[index:]...)
+						l.Unlock()
 						return
 					}
 
