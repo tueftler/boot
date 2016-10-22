@@ -6,18 +6,21 @@ Docker yields a "start" event when containers start. This, however, does not mea
 
 
 ```
-+------------------+          +------------------+          +------------------+
-|                  |          |                  | started  |                  |
-|  Docker Daemon   |          |  DoBoot          | and      |    Application   |
-|                  | started! |                  | ready:-) |    using         |
-|                  +---------->                  +---------->    Docker        |
-|                  |          |                  |          |    Socket        |
-|                  |          |                  |          |                  |
-+--------------+---+          +--+---------------+          +------------------+
-               |                 |
-       +-------v---+             |ready?
-       |           |             |
-       | Container <-------------+
-       |           |
-       +-----------+
++-----------------+             +---------+             +--------------+
+|                 |             |         |             |              |
+| Docker Daemon   |             | DoBoot  | 3) started  | Application  |
+|                 | 1) started! |         | and ready!  | using Docker |
+|                 +-------------> *magic* +-------------> Socket, e.g. |
+|                 |             | v       |             | Traefik      |
+|                 |             | |       |             |              |
++-------------+---+             +-+-------+             +--------------+
+              |                   |
+      +-------v---+               | 2) ready?
+      |           |               |
+      | Container <---------------+
+      |           |
+      +-----------+
+
+`------------------------------------´`--------------------------------´
+ /var/run/docker.sock                  /var/run/doboot.sock
 ```
