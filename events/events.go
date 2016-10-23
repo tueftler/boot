@@ -57,7 +57,7 @@ func (e *Events) Handle(event *docker.APIEvents) {
 
 // Listen starts listening for events on the Docker API and passes them
 // to Handle() when they occur, not waiting for it to return.
-func (e *Events) Listen() {
+func (e *Events) Listen(done chan bool) {
 	events := make(chan *docker.APIEvents)
 	e.Client.AddEventListener(events)
 	defer e.Client.RemoveEventListener(events)
@@ -66,6 +66,9 @@ func (e *Events) Listen() {
 		select {
 		case event := <-events:
 			go e.Handle(event)
+
+		case <-done:
+			return
 		}
 	}
 }

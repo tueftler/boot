@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/boot/addr"
@@ -47,6 +48,18 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 	}
 }
 
+// Graceful shutdown on Ctrl+C
+func wait(done chan bool) os.Signal {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt)
+
+	sig := <-sigs
+	fmt.Printf("\r")
+	done <- true
+
+	return sig
+}
+
 // Runs daemon
 func run(connect, listen addr.Addr) error {
 	client, err := docker.NewClient(connect.String())
@@ -76,10 +89,13 @@ func run(connect, listen addr.Addr) error {
 
 	go http.Serve(server, urls)
 
+	done := make(chan bool, 1)
 	events.Intercept("start", start)
 	events.Log.Info("Listening...")
-	events.Listen()
+	go events.Listen(done)
 
+	sig := wait(done)
+	events.Log.Info("Received %s, shutting down", sig)
 	return nil
 }
 
