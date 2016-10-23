@@ -53,11 +53,15 @@ func wait(done chan bool) os.Signal {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
 
-	sig := <-sigs
-	fmt.Printf("\r")
-	done <- true
+	select {
+	case sig := <-sigs:
+		fmt.Printf("\r")
+		done <- true
+		return sig
 
-	return sig
+	case <-done:
+		return nil
+	}
 }
 
 // Runs daemon
@@ -94,8 +98,9 @@ func run(connect, listen addr.Addr) error {
 	events.Log.Info("Listening...")
 	go events.Listen(done)
 
-	sig := wait(done)
-	events.Log.Info("Received %s, shutting down", sig)
+	if sig := wait(done); sig != nil {
+		events.Log.Info("Received %s, shutting down", sig)
+	}
 	return nil
 }
 

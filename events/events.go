@@ -65,6 +65,11 @@ func (e *Events) Listen(done chan bool) {
 	for {
 		select {
 		case event := <-events:
+			if event == nil {
+				e.Log.Info("Received EOF from docker daemon")
+				done <- true
+				return
+			}
 			go e.Handle(event)
 
 		case <-done:
