@@ -146,7 +146,7 @@ func main() {
 	http.HandleFunc("/v1.24/events", events)
 	http.HandleFunc("/v1.19/events", events)
 	http.HandleFunc("/v1.12/events", events)
-	http.Handle("/", proxy.New(endpoint, output.NewStream(output.Text("proxy", PROXY), output.Print)))
+	http.Handle("/", proxy.Pass(endpoint, output.NewStream(output.Text("proxy", PROXY), output.Print)))
 	go http.Serve(listen, nil)
 
 	// Listen for events

@@ -15,8 +15,8 @@ type Proxy struct {
 	Log     *output.Stream
 }
 
-// New returns a new HTTP proxy forwarding all requests to a given address
-func New(address *addr.Addr, log *output.Stream) *Proxy {
+// Pass returns a new HTTP proxy forwarding all requests to a given address
+func Pass(address *addr.Addr, log *output.Stream) *Proxy {
 	transport := &http.Transport{Dial: func(network, addr string) (net.Conn, error) {
 		return address.Dial()
 	}}
