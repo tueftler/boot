@@ -9,7 +9,11 @@ import (
 	"github.com/tueftler/boot/output"
 )
 
-type Handler func(stream *output.Stream, client *docker.Client, event *docker.APIEvents) error
+type Action interface {
+	Do(events *Events)
+}
+
+type Handler func(stream *output.Stream, client *docker.Client, event *docker.APIEvents) Action
 
 type Events struct {
 	Client    *docker.Client
@@ -34,7 +38,6 @@ func (e *Events) Emit(event *docker.APIEvents) {
 	for _, listener := range e.Listeners {
 		listener <- event
 	}
-
 	e.Log.Printf("To %d -> %s %s %+v\n", len(e.Listeners), event.Action, event.Actor.ID[0:13], event.Actor.Attributes)
 }
 
@@ -43,30 +46,31 @@ func (e *Events) Intercept(name string, handler Handler) {
 	e.Handlers[name] = handler
 }
 
-// Listen starts listening for events on the Docker API
+// Handle handles a single event
+func (e *Events) Handle(event *docker.APIEvents) {
+	if handler, ok := e.Handlers[event.Action]; ok {
+		action := handler(
+			e.Log.Prefixed(output.Text("container", event.Actor.ID[0:13]+" | ")),
+			e.Client,
+			event,
+		)
+		action.Do(e)
+	} else {
+		e.Emit(event)
+	}
+}
+
+// Listen starts listening for events on the Docker API and passes them
+// to Handle() when they occur, not waiting for it to return.
 func (e *Events) Listen() {
 	events := make(chan *docker.APIEvents)
 	e.Client.AddEventListener(events)
 	defer e.Client.RemoveEventListener(events)
 
-	e.Log.Line("info", "Listening...")
 	for {
 		select {
 		case event := <-events:
-			if handler, ok := e.Handlers[event.Status]; ok {
-				go func() {
-					container := output.NewStream(output.Text("container", event.ID[0:13]+" | "), output.Print)
-					err := handler(container, e.Client, event)
-					if err != nil {
-						container.Line("error", "Error %s", err.Error())
-					} else {
-						container.Line("success", "Up and running!")
-						e.Emit(event)
-					}
-				}()
-			} else {
-				e.Emit(event)
-			}
+			go e.Handle(event)
 		}
 	}
 }

@@ -13,9 +13,15 @@ type Stream struct {
 	started bool
 }
 
-// NewStream creates a stream on a given writer
+// NewStream creates a stream with a given prefix and writer
 func NewStream(prefix string, write func(string)) *Stream {
 	return &Stream{prefix: prefix, write: write, started: false}
+}
+
+// NewStream creates a stream on the same writer as this stream, but
+// with a different prefix
+func (s *Stream) Prefixed(prefix string) *Stream {
+	return &Stream{prefix: prefix, write: s.write, started: false}
 }
 
 // Printf formats arguments without any coloring

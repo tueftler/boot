@@ -14,10 +14,11 @@ import (
 	"github.com/tueftler/boot/proxy"
 )
 
-func wait(stream *output.Stream, client *docker.Client, event *docker.APIEvents) error {
-	container, err := client.InspectContainer(event.ID)
+func wait(stream *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
+	container, err := client.InspectContainer(event.Actor.ID)
 	if err != nil {
-		return err
+		stream.Line("error", "Inspect error %s", err.Error())
+		return &events.Drop{}
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
@@ -26,14 +27,18 @@ func wait(stream *output.Stream, client *docker.Client, event *docker.APIEvents)
 
 		result, err := boot.Run(stream)
 		if err != nil {
-			return err
+			stream.Line("error", "Run error %s", err.Error())
+			return &events.Drop{}
 		} else if result != 0 {
-			return fmt.Errorf("Non-zero exit code %d", result)
+			stream.Line("error", "Non-zero exit code %d", result)
+			return &events.Drop{}
 		}
-		return nil
+
+		stream.Line("success", "Up and running!")
+		return &events.Emit{Event: event}
 	} else {
 		stream.Line("warning", "No boot command present, assuming container started")
-		return nil
+		return &events.Emit{Event: event}
 	}
 }
 
@@ -68,6 +73,8 @@ func main() {
 	http.Handle("/", proxy.Pass(endpoint, output.NewStream(output.Text("proxy", "proxy         | "), output.Print)))
 
 	go http.Serve(listen, nil)
+
 	events.Intercept("start", wait)
+	events.Log.Line("info", "Listening...")
 	events.Listen()
 }
