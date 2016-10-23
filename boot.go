@@ -44,10 +44,10 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 	return &events.Emit{Event: event}
 }
 
-func run(endpoint, listen *addr.Addr) error {
-	client, err := docker.NewClient(endpoint.String())
+func run(connect, listen *addr.Addr) error {
+	client, err := docker.NewClient(connect.String())
 	if err != nil {
-		return fmt.Errorf("%s: %s", endpoint, err.Error())
+		return fmt.Errorf("%s: %s", connect, err.Error())
 	}
 
 	server, err := listen.Listen()
@@ -57,15 +57,16 @@ func run(endpoint, listen *addr.Addr) error {
 
 	// Distribute events
 	events := events.Distribute(client, output.NewStream(output.Text("proxy", "distribute    | "), output.Print))
-	http.Handle("/events", events)
-	http.Handle("/v1.24/events", events)
-	http.Handle("/v1.19/events", events)
-	http.Handle("/v1.12/events", events)
+	urls := http.NewServeMux()
+	urls.Handle("/events", events)
+	urls.Handle("/v1.24/events", events)
+	urls.Handle("/v1.19/events", events)
+	urls.Handle("/v1.12/events", events)
 
 	// Proxy the rest of the API calls
-	http.Handle("/", proxy.Pass(endpoint, output.NewStream(output.Text("proxy", "proxy         | "), output.Print)))
+	urls.Handle("/", proxy.Pass(connect, output.NewStream(output.Text("proxy", "proxy         | "), output.Print)))
 
-	go http.Serve(server, nil)
+	go http.Serve(server, urls)
 
 	events.Intercept("start", start)
 	events.Log.Info("Listening...")
