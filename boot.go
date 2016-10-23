@@ -19,27 +19,27 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 
 	container, err := client.InspectContainer(event.Actor.ID)
 	if err != nil {
-		stream.Line("error", "Inspect error %s", err.Error())
+		stream.Error("Inspect error %s", err.Error())
 		return &events.Drop{}
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
 		boot := command.Boot(client, container.ID, label)
-		stream.Line("info", "Using %s", boot)
+		stream.Info("Using %s", boot)
 
 		result, err := boot.Run(stream)
 		if err != nil {
-			stream.Line("error", "Run error %s", err.Error())
+			stream.Error("Run error %s", err.Error())
 			return &events.Drop{}
 		} else if result != 0 {
-			stream.Line("error", "Non-zero exit code %d", result)
+			stream.Error("Non-zero exit code %d", result)
 			return &events.Drop{}
 		}
 
-		stream.Line("success", "Up and running!")
+		stream.Success("Up and running!")
 		return &events.Emit{Event: event}
 	} else {
-		stream.Line("warning", "No boot command present, assuming container started")
+		stream.Warning("No boot command present, assuming container started")
 		return &events.Emit{Event: event}
 	}
 }
@@ -77,6 +77,6 @@ func main() {
 	go http.Serve(listen, nil)
 
 	events.Intercept("start", start)
-	events.Log.Line("info", "Listening...")
+	events.Log.Info("Listening...")
 	events.Listen()
 }

@@ -68,3 +68,69 @@ func Test_writing_lines(t *testing.T) {
 
 	assertEqual("> Line 1\n> Line 2\n", written, t)
 }
+
+func Test_prefix(t *testing.T) {
+	stream := NewStream("> ", func(arg string) {})
+	assertEqual("> ", stream.Prefix, t)
+}
+
+func Test_prefixed(t *testing.T) {
+	stream := NewStream("> ", func(arg string) {}).Prefixed("!")
+	assertEqual("!", stream.Prefix, t)
+}
+
+func Test_printf(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Printf("Test %d", 0)
+
+	assertEqual("> Test 0", written, t)
+}
+
+func Test_println(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Println("Hello", "World")
+
+	assertEqual("> Hello World\n", written, t)
+}
+
+func Test_line(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Line("info", "Test")
+
+	assertEqual("> "+Text("info", "Test")+"\n", written, t)
+}
+
+func Test_info(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Info("Test")
+
+	assertEqual("> "+Text("info", "Test")+"\n", written, t)
+}
+
+func Test_error(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Error("Test")
+
+	assertEqual("> "+Text("error", "Test")+"\n", written, t)
+}
+
+func Test_warning(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Warning("Test")
+
+	assertEqual("> "+Text("warning", "Test")+"\n", written, t)
+}
+
+func Test_success(t *testing.T) {
+	written := ""
+	stream := NewStream("> ", func(arg string) { written += arg })
+	stream.Success("Test")
+
+	assertEqual("> "+Text("success", "Test")+"\n", written, t)
+}

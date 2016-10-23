@@ -13,8 +13,3 @@ var colors = map[string]string{
 func Text(name, text string) string {
 	return "\033[" + colors[name] + "m" + text + "\033[0m"
 }
-
-// Line returns a colored text and appends a newline
-func Line(name, text string) string {
-	return "\033[" + colors[name] + "m" + text + "\033[0m\n"
-}
