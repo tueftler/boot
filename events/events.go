@@ -24,7 +24,7 @@ func Distribute(client *docker.Client, stream *output.Stream) *Events {
 	return &Events{
 		Client:    client,
 		Log:       stream,
-		Listeners: []chan *docker.APIEvents{},
+		Listeners: make([]chan *docker.APIEvents, 0),
 		Handlers:  make(map[string]Handler),
 	}
 }
