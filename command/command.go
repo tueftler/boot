@@ -12,7 +12,7 @@ type Executable interface {
 	String() string
 }
 
-// Boot returns a new command to be run inside a given docker container
+// Boot returns the boot command for a given Docker container
 func Boot(client *docker.Client, container *docker.Container) Executable {
 	if label, ok := container.Config.Labels["boot"]; ok {
 		command := strings.Split(label, " ")
