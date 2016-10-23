@@ -11,6 +11,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/boot/addr"
+	"github.com/tueftler/boot/command"
 	"github.com/tueftler/boot/output"
 	"github.com/tueftler/boot/proxy"
 )
@@ -30,36 +31,6 @@ func boot(label string) []string {
 	}
 }
 
-func run(stream *output.Stream, client *docker.Client, id string, cmd []string) (int, error) {
-	exec, err := client.CreateExec(docker.CreateExecOptions{
-		AttachStdin:  false,
-		AttachStdout: true,
-		AttachStderr: true,
-		Tty:          false,
-		Cmd:          cmd,
-		Container:    id,
-	})
-	if err != nil {
-		return -1, err
-	}
-
-	err = client.StartExec(exec.ID, docker.StartExecOptions{
-		OutputStream: stream,
-		ErrorStream:  stream,
-		RawTerminal:  false,
-	})
-	if err != nil {
-		return -1, err
-	}
-
-	inspect, err := client.InspectExec(exec.ID)
-	if err != nil {
-		return -1, err
-	}
-
-	return inspect.ExitCode, nil
-}
-
 func wait(stream *output.Stream, client *docker.Client, ID string) error {
 	container, err := client.InspectContainer(ID)
 	if err != nil {
@@ -67,9 +38,10 @@ func wait(stream *output.Stream, client *docker.Client, ID string) error {
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
-		stream.Line("info", "Using %+v", label)
+		boot := command.New(client, container.ID, boot(label))
+		stream.Line("info", "Using %s", boot)
 
-		result, err := run(stream, client, container.ID, boot(label))
+		result, err := boot.Run(stream)
 		if err != nil {
 			return err
 		} else if result != 0 {
