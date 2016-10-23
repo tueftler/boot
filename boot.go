@@ -37,11 +37,11 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 		}
 
 		stream.Success("Up and running!")
-		return &events.Emit{Event: event}
 	} else {
 		stream.Warning("No boot command present, assuming container started")
-		return &events.Emit{Event: event}
 	}
+
+	return &events.Emit{Event: event}
 }
 
 func main() {
