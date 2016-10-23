@@ -48,7 +48,7 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 }
 
 // Runs daemon
-func run(connect, listen *addr.Addr) error {
+func run(connect, listen addr.Addr) error {
 	client, err := docker.NewClient(connect.String())
 	if err != nil {
 		return fmt.Errorf("Connect '%s': %s", connect, err.Error())

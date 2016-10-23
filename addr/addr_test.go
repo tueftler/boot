@@ -17,8 +17,7 @@ func Test_unix(t *testing.T) {
 		t.Error(err)
 	}
 
-	assertEqual("unix", a.Network, t)
-	assertEqual("/var/run/docker.sock", a.Address, t)
+	assertEqual("unix:///var/run/docker.sock", a.String(), t)
 }
 
 func Test_http(t *testing.T) {
@@ -27,8 +26,7 @@ func Test_http(t *testing.T) {
 		t.Error(err)
 	}
 
-	assertEqual("tcp", a.Network, t)
-	assertEqual("localhost", a.Address, t)
+	assertEqual("http://localhost", a.String(), t)
 }
 
 func Test_http_with_port(t *testing.T) {
@@ -37,8 +35,7 @@ func Test_http_with_port(t *testing.T) {
 		t.Error(err)
 	}
 
-	assertEqual("tcp", a.Network, t)
-	assertEqual("localhost:8080", a.Address, t)
+	assertEqual("http://localhost:8080", a.String(), t)
 }
 
 func Test_https(t *testing.T) {
@@ -47,8 +44,7 @@ func Test_https(t *testing.T) {
 		t.Error(err)
 	}
 
-	assertEqual("tcp", a.Network, t)
-	assertEqual("localhost", a.Address, t)
+	assertEqual("https://localhost", a.String(), t)
 }
 
 func Test_path(t *testing.T) {
@@ -57,6 +53,5 @@ func Test_path(t *testing.T) {
 		t.Error(err)
 	}
 
-	assertEqual("unix", a.Network, t)
-	assertEqual("/var/run/docker.sock", a.Address, t)
+	assertEqual("unix:///var/run/docker.sock", a.String(), t)
 }
