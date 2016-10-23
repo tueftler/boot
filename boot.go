@@ -14,6 +14,7 @@ import (
 	"github.com/tueftler/boot/proxy"
 )
 
+// Intercept start event, running and waiting for boot command
 func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
 	stream := log.Prefixed(output.Text("container", event.Actor.ID[0:13]+" | "))
 
@@ -46,6 +47,7 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 	}
 }
 
+// Runs daemon
 func run(connect, listen *addr.Addr) error {
 	client, err := docker.NewClient(connect.String())
 	if err != nil {
@@ -76,6 +78,7 @@ func run(connect, listen *addr.Addr) error {
 	return nil
 }
 
+// Parse command line and run boot
 func main() {
 	docker := flag.String("docker", "unix:///var/run/docker.sock", "Docker socket")
 	listen := flag.String("listen", "unix:///var/run/boot.sock", "Boot socket")
