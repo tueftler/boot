@@ -9,7 +9,7 @@ import (
 
 type Exec struct {
 	Client    *docker.Client
-	Container string
+	Container *docker.Container
 	Command   []string
 }
 
@@ -22,7 +22,7 @@ func (e *Exec) Run(stream *output.Stream) (int, error) {
 		AttachStderr: true,
 		Tty:          false,
 		Cmd:          e.Command,
-		Container:    e.Container,
+		Container:    e.Container.ID,
 	})
 	if err != nil {
 		return -1, err
@@ -47,5 +47,5 @@ func (e *Exec) Run(stream *output.Stream) (int, error) {
 
 // String returns a string representation of this command
 func (e *Exec) String() string {
-	return fmt.Sprintf("Exec{%s @ %s}", e.Command, e.Container[0:13])
+	return fmt.Sprintf("Exec{%s @ %s}", e.Command, e.Container.ID[0:13])
 }

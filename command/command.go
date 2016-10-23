@@ -13,15 +13,19 @@ type Executable interface {
 }
 
 // Boot returns a new command to be run inside a given docker container
-func Boot(client *docker.Client, container string, label string) Executable {
-	command := strings.Split(label, " ")
+func Boot(client *docker.Client, container *docker.Container) Executable {
+	if label, ok := container.Config.Labels["boot"]; ok {
+		command := strings.Split(label, " ")
 
-	switch command[0] {
-	case "NONE":
+		switch command[0] {
+		case "NONE":
+			return &None{}
+		case "CMD":
+			return &Exec{Client: client, Container: container, Command: append([]string{"/bin/sh", "-c"}, command[1:]...)}
+		default:
+			return &Exec{Client: client, Container: container, Command: command}
+		}
+	} else {
 		return &None{}
-	case "CMD":
-		return &Exec{Client: client, Container: container, Command: append([]string{"/bin/sh", "-c"}, command[1:]...)}
-	default:
-		return &Exec{Client: client, Container: container, Command: command}
 	}
 }

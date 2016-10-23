@@ -23,25 +23,27 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 		return &events.Drop{}
 	}
 
-	if label, ok := container.Config.Labels["boot"]; ok {
-		boot := command.Boot(client, container.ID, label)
-		stream.Info("Using %s", boot)
-
-		result, err := boot.Run(stream)
-		if err != nil {
-			stream.Error("Run error %s", err.Error())
-			return &events.Drop{}
-		} else if result != 0 {
-			stream.Error("Non-zero exit code %d", result)
-			return &events.Drop{}
-		}
-
-		stream.Success("Up and running!")
-	} else {
-		stream.Warning("No boot command present, assuming container started")
+	boot := command.Boot(client, container)
+	stream.Info("Using boot command %s", boot)
+	result, err := boot.Run(stream)
+	if err != nil {
+		stream.Error("Run error %s", err.Error())
+		return &events.Drop{}
 	}
 
-	return &events.Emit{Event: event}
+	switch result {
+	case -1:
+		stream.Warning("No boot command present, assuming container started")
+		return &events.Emit{Event: event}
+
+	case 0:
+		stream.Success("Up and running!")
+		return &events.Emit{Event: event}
+
+	default:
+		stream.Error("Non-zero exit code %d", result)
+		return &events.Drop{}
+	}
 }
 
 func run(connect, listen *addr.Addr) error {
