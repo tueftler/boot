@@ -42,7 +42,7 @@ func run(stream *output.Stream, client *docker.Client, id string, cmd []string) 
 	err = client.StartExec(exec.ID, docker.StartExecOptions{
 		OutputStream: stream,
 		ErrorStream:  stream,
-		RawTerminal:  true,
+		RawTerminal:  false,
 	})
 	if err != nil {
 		return -1, err

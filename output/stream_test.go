@@ -68,12 +68,3 @@ func Test_writing_lines(t *testing.T) {
 
 	assertEqual("> Line 1\n> Line 2\n", written, t)
 }
-
-func Test_8byte_sequence_with_001_removed(t *testing.T) {
-	written := ""
-	stream := NewStream("> ", func(arg string) { written += arg })
-	stream.Write([]byte{'\001', '\000', '\000', '\000', '\000', '\000', '\000', '\001'})
-	io.WriteString(stream, "Test")
-
-	assertEqual("> Test", written, t)
-}
