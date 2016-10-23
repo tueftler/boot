@@ -90,7 +90,6 @@ func run(connect, listen addr.Addr) error {
 	urls.Handle("/v1.19/events", events)
 	urls.Handle("/v1.12/events", events)
 	urls.Handle("/", proxy)
-
 	go http.Serve(server, urls)
 
 	done := make(chan bool, 1)
