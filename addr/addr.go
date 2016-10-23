@@ -35,7 +35,7 @@ func (a *Addr) String() string {
 func Parse(input string) (*Addr, error) {
 	pos := strings.Index(input, "://")
 	if pos == -1 {
-		return &Addr{Network: "unix", Address: input}, nil
+		return &Addr{Protocol: "unix", Network: "unix", Address: input}, nil
 	} else {
 		scheme := input[0:pos]
 		pos += len("://")

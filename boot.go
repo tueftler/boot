@@ -51,12 +51,17 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 func run(connect, listen *addr.Addr) error {
 	client, err := docker.NewClient(connect.String())
 	if err != nil {
-		return fmt.Errorf("%s: %s", connect, err.Error())
+		return fmt.Errorf("Connect '%s': %s", connect, err.Error())
+	}
+
+	err = client.Ping()
+	if err != nil {
+		return fmt.Errorf("Ping '%s': %s", connect, err.Error())
 	}
 
 	server, err := listen.Listen()
 	if err != nil {
-		return fmt.Errorf("%s: %s", listen, err.Error())
+		return fmt.Errorf("Listen '%s': %s", listen, err.Error())
 	}
 
 	events := events.Distribute(client, output.NewStream(output.Text("proxy", "distribute    | "), output.Print))
@@ -85,7 +90,7 @@ func main() {
 	flag.Parse()
 
 	if err := run(addr.Flag(*docker), addr.Flag(*listen)); err != nil {
-		fmt.Printf("Error %s\n", err.Error())
+		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
