@@ -44,24 +44,15 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 	return &events.Emit{Event: event}
 }
 
-func main() {
-	dockerSocket := flag.String("docker", "unix:///var/run/docker.sock", "Docker socket")
-	listenSocket := flag.String("listen", "unix:///var/run/boot.sock", "Boot socket")
-	flag.Parse()
-
-	// Docker client
-	endpoint := addr.Flag(*dockerSocket)
+func run(endpoint, listen *addr.Addr) error {
 	client, err := docker.NewClient(endpoint.String())
 	if err != nil {
-		fmt.Printf("Error (%s) %s\n", *dockerSocket, err.Error())
-		os.Exit(1)
+		return fmt.Errorf("%s: %s", endpoint, err.Error())
 	}
 
-	// HTTP proxy
-	listen, err := addr.Flag(*listenSocket).Listen()
+	server, err := listen.Listen()
 	if err != nil {
-		fmt.Printf("Error (%s) %s\n", *listenSocket, err.Error())
-		os.Exit(1)
+		return fmt.Errorf("%s: %s", server, err.Error())
 	}
 
 	// Distribute events
@@ -74,9 +65,22 @@ func main() {
 	// Proxy the rest of the API calls
 	http.Handle("/", proxy.Pass(endpoint, output.NewStream(output.Text("proxy", "proxy         | "), output.Print)))
 
-	go http.Serve(listen, nil)
+	go http.Serve(server, nil)
 
 	events.Intercept("start", start)
 	events.Log.Info("Listening...")
 	events.Listen()
+
+	return nil
+}
+
+func main() {
+	docker := flag.String("docker", "unix:///var/run/docker.sock", "Docker socket")
+	listen := flag.String("listen", "unix:///var/run/boot.sock", "Boot socket")
+	flag.Parse()
+
+	if err := run(addr.Flag(*docker), addr.Flag(*listen)); err != nil {
+		fmt.Printf("Error %s\n", err.Error())
+		os.Exit(1)
+	}
 }
