@@ -14,7 +14,7 @@ import (
 	"github.com/tueftler/boot/proxy"
 )
 
-func wait(log *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
+func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
 	stream := log.Prefixed(output.Text("container", event.Actor.ID[0:13]+" | "))
 
 	container, err := client.InspectContainer(event.Actor.ID)
@@ -76,7 +76,7 @@ func main() {
 
 	go http.Serve(listen, nil)
 
-	events.Intercept("start", wait)
+	events.Intercept("start", start)
 	events.Log.Line("info", "Listening...")
 	events.Listen()
 }
