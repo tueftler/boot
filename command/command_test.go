@@ -17,22 +17,22 @@ func Test_create(t *testing.T) {
 	Boot(nil, CONTAINER, "/boot.sh")
 }
 
-func Test_container(t *testing.T) {
-	fixture := Boot(nil, CONTAINER, "/boot.sh")
-	assertEqual(CONTAINER, fixture.Container, t)
-}
-
-func Test_string(t *testing.T) {
-	fixture := Boot(nil, CONTAINER, "/boot.sh")
-	assertEqual("[/boot.sh] @ 610036617aa16", fixture.String(), t)
-}
-
 func Test_command(t *testing.T) {
 	fixture := Boot(nil, CONTAINER, "/boot.sh")
-	assertEqual([]string{"/boot.sh"}, fixture.Command, t)
+	assertEqual([]string{"/boot.sh"}, fixture.(*Exec).Command, t)
+}
+
+func Test_none_kind(t *testing.T) {
+	fixture := Boot(nil, CONTAINER, "NONE")
+	assertEqual("None", fixture.String(), t)
 }
 
 func Test_cmd_kind(t *testing.T) {
 	fixture := Boot(nil, CONTAINER, "CMD /boot.sh")
-	assertEqual([]string{"/bin/sh", "-c", "/boot.sh"}, fixture.Command, t)
+	assertEqual("Exec{[/bin/sh -c /boot.sh] @ 610036617aa16}", fixture.String(), t)
+}
+
+func Test_default_kind(t *testing.T) {
+	fixture := Boot(nil, CONTAINER, "/boot.sh")
+	assertEqual("Exec{[/boot.sh] @ 610036617aa16}", fixture.String(), t)
 }
