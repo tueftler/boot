@@ -121,13 +121,13 @@ func main() {
 		case event := <-events:
 			switch event.Status {
 			case "start":
-				stream := output.NewStream(output.Text("docker", event.ID[0:13]+" | "), output.Print)
+				container := output.NewStream(output.Text("container", event.ID[0:13]+" | "), output.Print)
 				go func() {
-					err := wait(stream, client, event.ID)
+					err := wait(container, client, event.ID)
 					if err != nil {
-						stream.Line("error", "Error %s", err.Error())
+						container.Line("error", "Error %s", err.Error())
 					} else {
-						stream.Line("success", "Up and running!")
+						container.Line("success", "Up and running!")
 						distribute(stream, listeners, event)
 					}
 				}()

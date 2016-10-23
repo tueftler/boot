@@ -1,13 +1,12 @@
 package output
 
 var colors = map[string]string{
-	"error":   "31",
-	"success": "32",
-	"warning": "35",
-	"info":    "36",
-
-	"docker": "34;1",
-	"proxy":  "33",
+	"error":     "31",
+	"success":   "32",
+	"warning":   "35",
+	"info":      "36",
+	"container": "34;1",
+	"proxy":     "33",
 }
 
 // Text returns a colored text
