@@ -14,7 +14,9 @@ import (
 	"github.com/tueftler/boot/proxy"
 )
 
-func wait(stream *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
+func wait(log *output.Stream, client *docker.Client, event *docker.APIEvents) events.Action {
+	stream := log.Prefixed(output.Text("container", event.Actor.ID[0:13]+" | "))
+
 	container, err := client.InspectContainer(event.Actor.ID)
 	if err != nil {
 		stream.Line("error", "Inspect error %s", err.Error())

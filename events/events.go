@@ -49,12 +49,7 @@ func (e *Events) Intercept(name string, handler Handler) {
 // Handle handles a single event
 func (e *Events) Handle(event *docker.APIEvents) {
 	if handler, ok := e.Handlers[event.Action]; ok {
-		action := handler(
-			e.Log.Prefixed(output.Text("container", event.Actor.ID[0:13]+" | ")),
-			e.Client,
-			event,
-		)
-		action.Do(e)
+		handler(e.Log, e.Client, event).Do(e)
 	} else {
 		e.Emit(event)
 	}
