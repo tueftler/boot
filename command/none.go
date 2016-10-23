@@ -9,7 +9,7 @@ type None struct {
 
 // Run does nothing, returns -1 as exit code
 func (n *None) Run(stream *output.Stream) (int, error) {
-	return -1, nil
+	return NOTRUN, nil
 }
 
 // String returns a string representation of this command

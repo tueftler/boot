@@ -7,6 +7,8 @@ import (
 	"github.com/tueftler/boot/output"
 )
 
+const NOTRUN = -1
+
 type Executable interface {
 	Run(stream *output.Stream) (int, error)
 	String() string

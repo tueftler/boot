@@ -32,7 +32,7 @@ func start(log *output.Stream, client *docker.Client, event *docker.APIEvents) e
 	}
 
 	switch result {
-	case -1:
+	case command.NOTRUN:
 		stream.Warning("No boot command present, assuming container started")
 		return &events.Emit{Event: event}
 
