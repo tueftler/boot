@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/boot/output"
@@ -13,8 +14,14 @@ type Command struct {
 	Command   []string
 }
 
-// New returns a new command to be run inside a given docker container
-func New(client *docker.Client, container string, command []string) *Command {
+// Boot returns a new command to be run inside a given docker container
+func Boot(client *docker.Client, container string, label string) *Command {
+	command := strings.Split(label, " ")
+	switch command[0] {
+	case "CMD":
+		command = append([]string{"/bin/sh", "-c"}, command[1:]...)
+	}
+
 	return &Command{Client: client, Container: container, Command: command}
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/fsouza/go-dockerclient"
@@ -21,16 +20,6 @@ const DISTRIBUTE = "distribute    | "
 
 var listeners []chan *docker.APIEvents
 
-func boot(label string) []string {
-	command := strings.Split(label, " ")
-	switch command[0] {
-	case "CMD":
-		return append([]string{"/bin/sh", "-c"}, command[1:]...)
-	default:
-		return command
-	}
-}
-
 func wait(stream *output.Stream, client *docker.Client, ID string) error {
 	container, err := client.InspectContainer(ID)
 	if err != nil {
@@ -38,7 +27,7 @@ func wait(stream *output.Stream, client *docker.Client, ID string) error {
 	}
 
 	if label, ok := container.Config.Labels["boot"]; ok {
-		boot := command.New(client, container.ID, boot(label))
+		boot := command.Boot(client, container.ID, label)
 		stream.Line("info", "Using %s", boot)
 
 		result, err := boot.Run(stream)
