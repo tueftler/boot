@@ -9,7 +9,7 @@ import (
 	"github.com/tueftler/boot/output"
 )
 
-type Handler func(stream *output.Stream, client *docker.Client, ID string) error
+type Handler func(stream *output.Stream, client *docker.Client, event *docker.APIEvents) error
 
 type Events struct {
 	Client    *docker.Client
@@ -56,7 +56,7 @@ func (e *Events) Listen() {
 			if handler, ok := e.Handlers[event.Status]; ok {
 				go func() {
 					container := output.NewStream(output.Text("container", event.ID[0:13]+" | "), output.Print)
-					err := handler(container, e.Client, event.ID)
+					err := handler(container, e.Client, event)
 					if err != nil {
 						container.Line("error", "Error %s", err.Error())
 					} else {

@@ -14,8 +14,8 @@ import (
 	"github.com/tueftler/boot/proxy"
 )
 
-func wait(stream *output.Stream, client *docker.Client, ID string) error {
-	container, err := client.InspectContainer(ID)
+func wait(stream *output.Stream, client *docker.Client, event *docker.APIEvents) error {
+	container, err := client.InspectContainer(event.ID)
 	if err != nil {
 		return err
 	}
