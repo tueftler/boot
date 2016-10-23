@@ -52,19 +52,18 @@ func run(connect, listen *addr.Addr) error {
 
 	server, err := listen.Listen()
 	if err != nil {
-		return fmt.Errorf("%s: %s", server, err.Error())
+		return fmt.Errorf("%s: %s", listen, err.Error())
 	}
 
-	// Distribute events
 	events := events.Distribute(client, output.NewStream(output.Text("proxy", "distribute    | "), output.Print))
+	proxy := proxy.Pass(connect, output.NewStream(output.Text("proxy", "proxy         | "), output.Print))
+
 	urls := http.NewServeMux()
 	urls.Handle("/events", events)
 	urls.Handle("/v1.24/events", events)
 	urls.Handle("/v1.19/events", events)
 	urls.Handle("/v1.12/events", events)
-
-	// Proxy the rest of the API calls
-	urls.Handle("/", proxy.Pass(connect, output.NewStream(output.Text("proxy", "proxy         | "), output.Print)))
+	urls.Handle("/", proxy)
 
 	go http.Serve(server, urls)
 
