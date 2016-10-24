@@ -87,6 +87,7 @@ func run(connect, listen addr.Addr) error {
 	urls := http.NewServeMux()
 	urls.Handle("/events", events)
 	urls.Handle("/v1.24/events", events)
+	urls.Handle("/v1.21/events", events)
 	urls.Handle("/v1.19/events", events)
 	urls.Handle("/v1.12/events", events)
 	urls.Handle("/", proxy)
