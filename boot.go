@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/tueftler/boot/addr"
@@ -85,12 +86,13 @@ func run(connect, listen addr.Addr) error {
 	proxy := proxy.Pass(connect, output.NewStream(output.Text("proxy", "proxy         | "), output.Print))
 
 	urls := http.NewServeMux()
-	urls.Handle("/events", events)
-	urls.Handle("/v1.24/events", events)
-	urls.Handle("/v1.21/events", events)
-	urls.Handle("/v1.19/events", events)
-	urls.Handle("/v1.12/events", events)
-	urls.Handle("/", proxy)
+	urls.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/events") {
+			events.ServeHTTP(w, r)
+		} else {
+			proxy.ServeHTTP(w, r)
+		}
+	})
 	go http.Serve(server, urls)
 
 	done := make(chan bool, 1)
